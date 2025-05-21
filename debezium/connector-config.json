@@ -1,0 +1,36 @@
+{
+  "name": "inventory-connector",
+  "config": {
+    "connector.class": "io.debezium.connector.postgresql.PostgresConnector",
+    "tasks.max": "1",
+    
+    "topic.prefix": "dbserver1",
+    "database.hostname": "postgres",
+    "database.port": "5432",
+    "database.user": "debezium",
+    "database.password": "dbz",
+    "database.dbname": "inventory",
+    
+    "schema.include.list": "public",
+    "table.include.list": "public.customers",
+    
+    "plugin.name": "pgoutput",
+    "publication.name": "dbz_publication",
+    "slot.name": "debezium_slot",
+    
+    "heartbeat.interval.ms": "5000",
+    "snapshot.mode": "initial",
+    "snapshot.fetch.size": "10000",
+    
+    "decimal.handling.mode": "precise",
+    "time.precision.mode": "connect",
+    
+    "tombstones.on.delete": "true",
+    "provide.transaction.metadata": "true",
+    
+    "transforms": "unwrap",
+    "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState",
+    "transforms.unwrap.drop.tombstones": "false",
+    "transforms.unwrap.delete.handling.mode": "rewrite"
+  }
+}

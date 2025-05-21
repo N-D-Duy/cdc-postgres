@@ -1,0 +1,73 @@
+services:
+  postgres:
+    build: ./postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: inventory
+    volumes:
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    build: ./kafka
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    depends_on:
+      - zookeeper
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+
+  schema-registry:
+    build: ./schema-registry
+    ports:
+      - "8081:8081"
+    depends_on:
+      - kafka
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka:9092
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+
+  connect:
+    image: debezium/connect:2.3
+    ports:
+      - "8083:8083"
+    depends_on:
+      - kafka
+      - postgres
+      - schema-registry
+    environment:
+       BOOTSTRAP_SERVERS: kafka:9092
+       GROUP_ID: 1
+       CONFIG_STORAGE_TOPIC: connect_configs
+       OFFSET_STORAGE_TOPIC: connect_offsets
+       STATUS_STORAGE_TOPIC: connect_statuses
+       CONNECT_PLUGIN_PATH: /kafka/connect
+       KEY_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+       VALUE_CONVERTER: org.apache.kafka.connect.json.JsonConverter
+       KEY_CONVERTER_SCHEMAS_ENABLE: "true" 
+       VALUE_CONVERTER_SCHEMAS_ENABLE: "true"
+       CONNECT_METADATA_MAX_AGE_MS: 30000
